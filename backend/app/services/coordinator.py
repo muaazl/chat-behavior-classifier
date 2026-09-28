@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from sentence_transformers import SentenceTransformer
 import spacy
 import logging
+import gc
 from .parser import WhatsAppParser, ParseResult, RawMessage
 from .preprocessing import MessageCleaner, PreprocessingResult
 from .nlp import (
@@ -62,13 +63,17 @@ class AnalysisCoordinator:
         logger.info("Warming up ML models (Sentiment, Toxicity)...")
         _ = self.sentiment.pipeline
         _ = self.toxicity.pipeline
-        _ = self.topics.model
+        _ = self.topics.embedder
         duration = round(time.time() - start, 2)
         logger.info(f"Warm-up complete in {duration}s. All systems ready.")
     def _run_sync(self, fn, *args):
         """Submit a synchronous callable to the thread pool."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return loop.run_in_executor(self._executor, fn, *args)
+        
+    def shutdown(self):
+        """Clean up thread pool."""
+        self._executor.shutdown(wait=False)
     @staticmethod
     def _sample_messages(
         messages: List[RawMessage], max_count: int
@@ -126,11 +131,17 @@ class AnalysisCoordinator:
             )
             return final_scores
         finally:
-            for name in ("raw_text", "parse_result", "raw_msgs"):
-                if name in locals():
-                    del locals()[name]
+            if "raw_text" in locals():
+                del raw_text
+            if "parse_result" in locals():
+                del parse_result
+            if "raw_messages" in locals():
+                del raw_messages
+            gc.collect()
     async def analyze_file_content(self, content_bytes: bytes) -> ScoringResponse:
         """Decodes file content and runs analysis."""
+        if len(content_bytes) > settings.MAX_UPLOAD_BYTES:
+            raise ValueError(f"File exceeds maximum size of {settings.MAX_UPLOAD_BYTES // (1024*1024)}MB.")
         try:
             try:
                 raw_text = content_bytes.decode("utf-8-sig")
@@ -143,4 +154,5 @@ class AnalysisCoordinator:
             return await self.run_full_analysis(raw_text)
         finally:
             if "raw_text" in locals():
-                del locals()["raw_text"]
+                del raw_text
+            gc.collect()

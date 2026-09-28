@@ -1,7 +1,6 @@
 import re
 import emoji
 from typing import List, Dict, Tuple, Any, Optional
-import pandas as pd
 import numpy as np
 import spacy
 from ..parser.schemas import RawMessage
@@ -91,27 +90,37 @@ class MessageCleaner:
             preprocessed.append(processed)
             for emoji in processed.metadata.emoji_list:
                 emoji_map[emoji] = emoji_map.get(emoji, 0) + 1
-        df = pd.DataFrame([
-            {
-                "sender": p.raw.sender,
-                "msg_len": p.metadata.message_length,
-                "caps": p.metadata.caps_ratio,
-                "emojis": p.metadata.emoji_count,
-                "is_media": p.metadata.has_media
-            } for p in preprocessed if p.raw.sender
-        ])
         participant_stats = {}
-        if not df.empty:
-            participant_stats = df.groupby("sender").agg({
-                "msg_len": "mean",
-                "caps": "mean",
-                "emojis": "sum",
-                "is_media": "sum"
-            }).to_dict(orient="index")
+        for p in preprocessed:
+            if not p.raw.sender:
+                continue
+            sender = p.raw.sender
+            if sender not in participant_stats:
+                participant_stats[sender] = {
+                    "msg_len_sum": 0, "msg_count": 0,
+                    "caps_sum": 0.0,
+                    "emojis": 0,
+                    "is_media": 0
+                }
+            stats = participant_stats[sender]
+            stats["msg_len_sum"] += p.metadata.message_length
+            stats["msg_count"] += 1
+            stats["caps_sum"] += p.metadata.caps_ratio
+            stats["emojis"] += p.metadata.emoji_count
+            stats["is_media"] += 1 if p.metadata.has_media else 0
+
+        final_stats = {}
+        for sender, stats in participant_stats.items():
+            final_stats[sender] = {
+                "msg_len": stats["msg_len_sum"] / stats["msg_count"] if stats["msg_count"] > 0 else 0,
+                "caps": stats["caps_sum"] / stats["msg_count"] if stats["msg_count"] > 0 else 0,
+                "emojis": stats["emojis"],
+                "is_media": stats["is_media"]
+            }
         return PreprocessingResult(
             messages=preprocessed,
             global_metadata={
                 "total_emojis": emoji_map,
-                "participant_stats": participant_stats
+                "participant_stats": final_stats
             }
         )

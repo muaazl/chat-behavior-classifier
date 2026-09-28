@@ -31,13 +31,28 @@ class SentimentAnalyzer:
     @property
     def pipeline(self):
         if self._pipeline is None:
-            self._pipeline = pipeline(
-                "sentiment-analysis",
-                model=self.model_name,
-                tokenizer=self.model_name,
-                device=-1,
-                top_k=None,
-            )
+            try:
+                from optimum.onnxruntime import ORTModelForSequenceClassification
+                from transformers import AutoTokenizer
+                
+                model = ORTModelForSequenceClassification.from_pretrained(self.model_name, export=True)
+                tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                
+                self._pipeline = pipeline(
+                    "sentiment-analysis",
+                    model=model,
+                    tokenizer=tokenizer,
+                    device=-1,
+                    top_k=None,
+                )
+            except ImportError:
+                self._pipeline = pipeline(
+                    "sentiment-analysis",
+                    model=self.model_name,
+                    tokenizer=self.model_name,
+                    device=-1,
+                    top_k=None,
+                )
         return self._pipeline
     def _get_continuous_score(
         self, results: List[Dict[str, Any]]

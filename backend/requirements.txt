@@ -1,6 +1,7 @@
-fastapi[all]
+fastapi[all]>=0.100.0
 pydantic>=2.0.0
-uvicorn
+pydantic-settings>=2.0.0
+uvicorn>=0.23.0
 pytest
 pandas
 numpy
@@ -10,4 +11,5 @@ transformers
 scikit-learn
 torch --index-url https://download.pytorch.org/whl/cpu
 emoji
-psutil
+slowapi
+optimum[onnxruntime]

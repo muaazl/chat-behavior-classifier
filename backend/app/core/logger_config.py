@@ -8,8 +8,6 @@ class PrivacyFilter(logging.Filter):
         msg = str(record.msg)
         if self.CHAT_PATTERN.search(msg):
             record.msg = self.CHAT_PATTERN.sub("[REDACTED CHAT LINE]:", msg)
-        if self.CHAT_PATTERN.search(msg):
-            record.msg = self.CHAT_PATTERN.sub("[REDACTED CHAT LINE]:", msg)
         return True
 def setup_privacy_logging(level=logging.INFO):
     """Initializes logging with strict privacy filters."""

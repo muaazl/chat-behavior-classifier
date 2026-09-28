@@ -74,6 +74,7 @@ class ScoringEngine:
         m_map: Dict[int, Dict[str, Any]] = {}
         for pm in preprocessed.messages:
             m_map[pm.message_id] = {
+                "message_id": pm.message_id,
                 "text": pm.base_clean,
                 "raw_text": pm.raw.content,
                 "timestamp": pm.raw.timestamp,
@@ -112,7 +113,18 @@ class ScoringEngine:
             if curr["sender"] != prev["sender"] and tdelta < 14400:
                 if curr["sender"] in resp_times:
                     resp_times[curr["sender"]].append(tdelta)
+        # Group messages by sender for faster access
+        msgs_by_sender = {}
+        for m_data in msg_map.values():
+            sender = m_data.get("sender")
+            if sender:
+                if sender not in msgs_by_sender:
+                    msgs_by_sender[sender] = []
+                msgs_by_sender[sender].append(m_data)
+
         for p_profile in speakers.participants:
+            p_msgs = msgs_by_sender.get(p_profile.name, [])
+            
             msg_ratio = p_profile.messages_sent / total_msgs if total_msgs > 0 else 0
             word_ratio = p_profile.words_total / total_words if total_words > 0 else 0
             dom_val = (msg_ratio * self.dominance_weights["msg_ratio"] +
@@ -169,7 +181,7 @@ class ScoringEngine:
                 explanation="Aggregated toxicity, emotional withdrawal, and passive aggression markers.",
                 confidence=0.8
             )
-            p_sent_score = sum(getattr(msg_map.get(m, {}).get("sentiment"), "score", 0.0) for m in range(max(1, total_msgs)) if msg_map.get(m, {}).get("sender") == p_profile.name)
+            p_sent_score = sum(getattr(m.get("sentiment"), "score", 0.0) for m in p_msgs)
             p_sent_avg = p_sent_score / max(1, p_profile.messages_sent)
             pm_val = max(0.0, (1.0 - tox_val) * (0.5 + p_sent_avg * 0.5))
             peacemaker_index = ScoreMetadata(value=pm_val, label=self._get_label_for_score(pm_val, ["Stirrer", "Neutral", "De-escalator", "The UN"]), explanation="Attempts to restore peace.", confidence=0.6)
@@ -177,7 +189,6 @@ class ScoringEngine:
             instigator_score = ScoreMetadata(value=inst_val, label=self._get_label_for_score(inst_val, ["Peaceful", "Slightly Messy", "Pot Stirrer", "Chaos Agent"]), explanation="Generates conflict and engagement spikes.", confidence=0.7)
             ghost_val = max(0.0, 1.0 - dom_val)
             ghost_level = ScoreMetadata(value=ghost_val, label=self._get_label_for_score(ghost_val, ["Always There", "Occasional", "Rare Appearance", "The Ghost"]), explanation="Present but rarely speaks.", confidence=0.8)
-            p_msgs = [data for mid, data in msg_map.items() if data.get("sender") == p_profile.name]
             chars_sent = sum(len(m_data["text"]) for m_data in p_msgs)
             cp_val = (chars_sent / len(p_msgs)) if p_msgs else 0.0
             chars_per_message = ScoreMetadata(
@@ -202,7 +213,7 @@ class ScoringEngine:
             if inst_val > 0.7: badges.append("Drama Starter")
             if ghost_val > 0.8: badges.append("The Ghost")
             if pm_val > 0.7: badges.append("The Peacemaker")
-            p_msgs = [data for mid, data in msg_map.items() if data.get("sender") == p_profile.name]
+
             emoji_counts = {}
             for m in p_msgs:
                 for em in emoji.emoji_list(m["raw_text"]):
@@ -248,24 +259,23 @@ class ScoringEngine:
             if rt_val > 0.7: badges.append("Leaves on Read")
             if st_val > 0.7: badges.append("Conversation Starter")
             notable_quotes = []
-            user_msgs = [(mid, data) for mid, data in msg_map.items() if data.get("sender") == p_profile.name]
-            if user_msgs:
-                rf_msgs = sorted(user_msgs, key=lambda x: self._x_tox(x[1]), reverse=True)
+            if p_msgs:
+                rf_msgs = sorted(p_msgs, key=lambda x: self._get_toxicity_score(x), reverse=True)
                 for m in rf_msgs[:4]:
-                    if self._x_tox(m[1]) > 0.4 and m[0] not in [q.message_id for q in notable_quotes]:
-                        notable_quotes.append(NotableQuote(message_id=m[0], text=m[1]["text"], context="Biggest Red Flag 🚩"))
-                pa_msgs = sorted(user_msgs, key=lambda x: self._x_pa(x[1]), reverse=True)
+                    if self._get_toxicity_score(m) > 0.4 and m.get("message_id") not in [q.message_id for q in notable_quotes]:
+                        notable_quotes.append(NotableQuote(message_id=m.get("message_id"), text=m["text"], context="Biggest Red Flag 🚩"))
+                pa_msgs = sorted(p_msgs, key=lambda x: self._get_pa_score(x), reverse=True)
                 for m in pa_msgs[:4]:
-                    if self._x_pa(m[1]) > 0.4 and m[0] not in [q.message_id for q in notable_quotes]:
-                        notable_quotes.append(NotableQuote(message_id=m[0], text=m[1]["text"], context="Passive Aggression 🙄"))
-                dry_msgs = sorted(user_msgs, key=lambda x: self._x_dry(x[1]), reverse=True)
+                    if self._get_pa_score(m) > 0.4 and m.get("message_id") not in [q.message_id for q in notable_quotes]:
+                        notable_quotes.append(NotableQuote(message_id=m.get("message_id"), text=m["text"], context="Passive Aggression 🙄"))
+                dry_msgs = sorted(p_msgs, key=lambda x: self._get_dryness_score(x), reverse=True)
                 for m in dry_msgs[:4]:
-                    if self._x_dry(m[1]) > 0.5 and m[0] not in [q.message_id for q in notable_quotes]:
-                        notable_quotes.append(NotableQuote(message_id=m[0], text=m[1]["text"], context="Very Dry 🌵"))
-                wh_msgs = sorted(user_msgs, key=lambda x: self._x_sent(x[1]), reverse=True)
+                    if self._get_dryness_score(m) > 0.5 and m.get("message_id") not in [q.message_id for q in notable_quotes]:
+                        notable_quotes.append(NotableQuote(message_id=m.get("message_id"), text=m["text"], context="Very Dry 🌵"))
+                wh_msgs = sorted(p_msgs, key=lambda x: self._get_sentiment_score(x), reverse=True)
                 for m in wh_msgs[:4]:
-                    if self._x_sent(m[1]) > 0.6 and m[0] not in [q.message_id for q in notable_quotes]:
-                        notable_quotes.append(NotableQuote(message_id=m[0], text=m[1]["text"], context="A Rare Wholesome Moment 💚"))
+                    if self._get_sentiment_score(m) > 0.6 and m.get("message_id") not in [q.message_id for q in notable_quotes]:
+                        notable_quotes.append(NotableQuote(message_id=m.get("message_id"), text=m["text"], context="A Rare Wholesome Moment 💚"))
             results.append(ParticipantScoring(
                 name=p_profile.name,
                 message_count=len(p_msgs),
@@ -294,10 +304,10 @@ class ScoringEngine:
                 notable_quotes=notable_quotes
             ))
         return results
-    def _x_tox(self, x): return getattr(x.get("toxicity"), "score", 0.0) if x.get("toxicity") else 0.0
-    def _x_pa(self, x): return getattr(x.get("tonality"), "passive_aggression_score", 0.0) if x.get("tonality") else 0.0
-    def _x_dry(self, x): return getattr(x.get("tonality"), "dryness_score", 0.0) if x.get("tonality") else 0.0
-    def _x_sent(self, x): return getattr(x.get("sentiment"), "score", 0.0) if x.get("sentiment") else 0.0
+    def _get_toxicity_score(self, x): return getattr(x.get("toxicity"), "score", 0.0) if x.get("toxicity") else 0.0
+    def _get_pa_score(self, x): return getattr(x.get("tonality"), "passive_aggression_score", 0.0) if x.get("tonality") else 0.0
+    def _get_dryness_score(self, x): return getattr(x.get("tonality"), "dryness_score", 0.0) if x.get("tonality") else 0.0
+    def _get_sentiment_score(self, x): return getattr(x.get("sentiment"), "score", 0.0) if x.get("sentiment") else 0.0
     def _calculate_segment_metrics(
         self, topics, sentiment, toxicity, tonality, speakers, msg_map
     ) -> List[SegmentScoring]:
@@ -379,7 +389,7 @@ class ScoringEngine:
         top_mce = max(participants, key=lambda x: x.self_focus.value, default=None)
         if top_mce and top_mce.self_focus.value > 0.5:
              cards.append(StandoutCard(
-                type="award",
+                card_type="award",
                 title="The Center of Attention",
                 recipient=top_mce.name,
                 description="This conversation was basically their solo performance. Everyone else was just listening.",
@@ -388,7 +398,7 @@ class ScoringEngine:
         most_dry = max(participants, key=lambda x: x.effort_level.value, default=None)
         if most_dry and most_dry.effort_level.value > 0.6:
             cards.append(StandoutCard(
-                type="red_flag",
+                card_type="red_flag",
                 title="The Silent Treatment",
                 recipient=most_dry.name,
                 description="Response energy is extremely low. Talking to them feels like sending messages into a void.",

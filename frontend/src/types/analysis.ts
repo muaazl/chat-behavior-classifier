@@ -38,7 +38,7 @@ export interface ParticipantScoring {
 export interface SegmentScoring {
   segment_id: number;
   topic_label: string;
-  tension: number;
+  tension: ScoreMetadata;
   mood: string;
   notable_message_id?: number | null;
   notable_reason?: string | null;
@@ -53,8 +53,8 @@ export interface TimelinePoint {
 export interface StandoutCard {
   title: string;
   description: string;
-  type: 'award' | 'red_flag' | 'statistic';
-  icon?: string;
+  card_type: 'award' | 'red_flag' | 'statistic';
+  icon_hint?: string;
 }
 export interface GlobalMetrics {
   conversation_health: number;

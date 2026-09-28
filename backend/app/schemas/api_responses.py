@@ -3,7 +3,7 @@ from typing import List, Optional, Any, Dict
 from ..services.scoring.schemas import ScoringResponse
 class AnalysisRequest(BaseModel):
     """Request for text-based analysis."""
-    text: str = Field(..., min_length=10, description="The raw chat export or pasted text.")
+    text: str = Field(..., min_length=10, max_length=500_000, description="The raw chat export or pasted text.")
     options: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Custom analysis flags.")
 class AnalysisSuccessResponse(BaseModel):
     """Standard success response wrapper."""

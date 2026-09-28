@@ -101,7 +101,7 @@ class ToxicityAnalysisResponse(BaseModel):
     )
 class TonalitySignal(BaseModel):
     """A specific signal contributing to a tonality score (for explainability)."""
-    type: str
+    signal_type: str
     score_influence: float
     description: str
 class MessageTonality(BaseModel):

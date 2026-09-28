@@ -67,9 +67,9 @@ Health check for the backend service.
 {
   "name": "Alice",
   "dominance": ScoreMetadata,
-  "dry_texting": ScoreMetadata,
-  "passive_aggression": ScoreMetadata,
-  "main_character_energy": ScoreMetadata,
+  "effort_level": ScoreMetadata,
+  "hidden_attitude": ScoreMetadata,
+  "self_focus": ScoreMetadata,
   "badges": ["string"]
 }
 ```

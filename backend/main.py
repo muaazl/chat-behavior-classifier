@@ -4,12 +4,36 @@ from app.api.endpoints import router as analysis_router, coordinator
 from app.middleware.privacy_handler import PrivacyCleanupMiddleware
 from app.core.logger_config import setup_privacy_logging
 import logging
+import uuid
+import time
+from datetime import datetime
 from contextlib import asynccontextmanager
 import os
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
 
 # Initialize Privacy Logging
 setup_privacy_logging(level=logging.INFO)
 logger = logging.getLogger("api_main")
+
+limiter = Limiter(key_func=get_remote_address)
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        request_id = str(uuid.uuid4())
+        request.state.request_id = request_id
+        start_time = time.time()
+        
+        response = await call_next(request)
+        
+        process_time = time.time() - start_time
+        response.headers["X-Request-ID"] = request_id
+        response.headers["X-Process-Time"] = str(process_time)
+        return response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +43,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown: Clean up if needed
     logger.info("Shutting down Moodrae Engine")
+    coordinator.shutdown()
 
 app = FastAPI(
     title="Moodrae - Analyzer Service",
@@ -26,6 +51,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Middleware 
 # In production on Hugging Face, set the CORS_ORIGINS env var
@@ -49,6 +76,9 @@ app.add_middleware(
 # Privacy Middleware (Cleans up memory after each request)
 app.add_middleware(PrivacyCleanupMiddleware)
 
+# Request ID Middleware
+app.add_middleware(RequestIDMiddleware)
+
 # API Routes
 app.include_router(analysis_router, prefix="/api/v1")
 
@@ -58,7 +88,7 @@ async def health_check():
     return {
         "status": "online",
         "service": "Moodrae Engine",
-        "timestamp": None
+        "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
 if __name__ == "__main__":

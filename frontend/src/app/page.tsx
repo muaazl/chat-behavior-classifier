@@ -19,7 +19,7 @@ export default function Home() {
   const [estimatedDuration, setEstimatedDuration] = useState(10);
   const playCompletionSound = () => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       oscillator.type = 'sine';
@@ -189,8 +189,8 @@ export default function Home() {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-wa-green)]/10 rounded-bl-[100px] -z-0"></div>
                     <CardContent className="p-6 space-y-4 relative z-10">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${
-                        card.type === 'award' ? 'bg-yellow-100 text-yellow-600' :
-                        card.type === 'red_flag' ? 'bg-red-100 text-red-600' :
+                        card.card_type === 'award' ? 'bg-yellow-100 text-yellow-600' :
+                        card.card_type === 'red_flag' ? 'bg-red-100 text-red-600' :
                         'bg-blue-100 text-blue-600'
                       }`}>
                         <Sparkles className="w-5 h-5" />

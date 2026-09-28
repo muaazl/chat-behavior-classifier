@@ -127,19 +127,19 @@ class TonalityAnalyzer:
         dryness_score = (brevity * 0.5) + ((1 - vibrancy) * 0.3) + (neutral_boost * 0.2)
         if brevity > 0.7:
             signals.append(TonalitySignal(
-                type="brevity",
+                signal_type="brevity",
                 score_influence=round(brevity * 0.5, 3),
                 description="Message is unusually short.",
             ))
         if vibrancy < 0.2:
             signals.append(TonalitySignal(
-                type="low_vibrancy",
+                signal_type="low_vibrancy",
                 score_influence=0.3,
                 description="Lack of emojis or expressive punctuation.",
             ))
         if neutral_boost > 0:
             signals.append(TonalitySignal(
-                type="neutral_sentiment",
+                signal_type="neutral_sentiment",
                 score_influence=neutral_boost * 0.2,
                 description="Sentiment model detected a flat, neutral tone.",
             ))
@@ -148,7 +148,7 @@ class TonalityAnalyzer:
         if mismatch_boost > 0:
             pa_score += mismatch_boost
             signals.append(TonalitySignal(
-                type="mismatch",
+                signal_type="mismatch",
                 score_influence=mismatch_boost,
                 description="Sentiment model says positive, but delivery is terse — classic dry sarcasm.",
             ))
@@ -160,7 +160,7 @@ class TonalityAnalyzer:
             abrupt_boost = 0.2
             pa_score += abrupt_boost
             signals.append(TonalitySignal(
-                type="abruptness",
+                signal_type="abruptness",
                 score_influence=abrupt_boost,
                 description="Unexpected period at the end of a short message.",
             ))
@@ -170,7 +170,7 @@ class TonalityAnalyzer:
                 delay_boost = 0.15
                 pa_score += delay_boost
                 signals.append(TonalitySignal(
-                    type="delay",
+                    signal_type="delay",
                     score_influence=delay_boost,
                     description="Significant delay followed by a very brief response.",
                 ))
@@ -183,7 +183,7 @@ class TonalityAnalyzer:
             casing_boost = 0.1
             pa_score += casing_boost
             signals.append(TonalitySignal(
-                type="dismissive_casing",
+                signal_type="dismissive_casing",
                 score_influence=casing_boost,
                 description="All-lowercase with terminal punctuation — dismissive tone pattern.",
             ))
@@ -225,7 +225,7 @@ class TonalityAnalyzer:
                 p_map[t.sender] = {"dry": [], "pa": [], "signals": []}
             p_map[t.sender]["dry"].append(t.dryness_score)
             p_map[t.sender]["pa"].append(t.passive_aggression_score)
-            p_map[t.sender]["signals"].extend([s.type for s in t.signals])
+            p_map[t.sender]["signals"].extend([s.signal_type for s in t.signals])
         results = []
         for name, data in p_map.items():
             top_signals = (

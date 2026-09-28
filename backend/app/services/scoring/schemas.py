@@ -48,7 +48,7 @@ class SegmentScoring(BaseModel):
     notable_reason: Optional[str] = None
 class StandoutCard(BaseModel):
     """Data for a shareable 'Achievement' or 'Red Flag' card."""
-    type: str = Field(..., description="e.g. 'award', 'red_flag', 'statistic'")
+    card_type: str = Field(..., description="e.g. 'award', 'red_flag', 'statistic'")
     title: str
     recipient: str
     description: str

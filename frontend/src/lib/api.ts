@@ -10,7 +10,7 @@ export async function analyzeText(request: AnalysisRequest): Promise<AnalysisSuc
   });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || 'Analysis failed');
+    throw new Error(errorBody.message || errorBody.detail || 'Analysis failed');
   }
   return response.json();
 }
@@ -23,7 +23,7 @@ export async function analyzeFile(file: File): Promise<AnalysisSuccessResponse> 
   });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
-    throw new Error(errorBody.message || 'File analysis failed');
+    throw new Error(errorBody.message || errorBody.detail || 'File analysis failed');
   }
   return response.json();
 }
