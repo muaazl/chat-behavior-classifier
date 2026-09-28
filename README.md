@@ -4,6 +4,12 @@
 
 Moodrae is a privacy-first, local-only NLP engine that analyzes WhatsApp chat exports. It uses advanced NLP models to detect who's the driver, who's the dry texter, who's got main character energy, and who is lowkey manipulative, along with a full sentiment and tension timeline.
 
+---
+
+https://github.com/user-attachments/assets/3a46aa6b-a197-49e5-9f67-5c6b8bbb9de7
+
+---
+
 ## How it Works
 
 1. **Parser**: Cleans and normalizes WhatsApp `.txt` exports.
