@@ -51,7 +51,3 @@ Create a `.env` file in the `backend/` directory:
 - **Ephemeral Lifecycle**: Objects are explicitly garbage collected after response delivery.
 - **Local-First**: 100% of NLP processing occurs within the local CPU/memory space using spaCy and Transformers (via ONNX runtime).
 - **No External LLMs**: The backend does not contact OpenAI, Anthropic, or any other cloud provider.
-
-## License
-
-MIT License. See `LICENSE` for more information.
